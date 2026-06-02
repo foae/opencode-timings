@@ -1,0 +1,56 @@
+{
+  "name": "opencode-timings",
+  "version": "0.1.0",
+  "description": "OpenCode TUI sidebar panel showing per-session timing: total API/inference time, wall-clock, turns, average and slowest turn. Zero context-window pollution.",
+  "license": "MIT",
+  "author": "foae",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/foae/opencode-timings.git"
+  },
+  "homepage": "https://github.com/foae/opencode-timings#readme",
+  "bugs": {
+    "url": "https://github.com/foae/opencode-timings/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "tui",
+    "sidebar",
+    "timing",
+    "duration",
+    "metrics",
+    "session"
+  ],
+  "oc-plugin": [
+    "tui"
+  ],
+  "exports": {
+    "./tui": {
+      "default": "./tui.tsx"
+    }
+  },
+  "files": [
+    "tui.tsx",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.1.107",
+    "@opentui/solid": "^0.1.107",
+    "solid-js": "^1.9.12"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "^1.14.29"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.14.29",
+    "@opencode-ai/sdk": "^1.14.29",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  }
+}
