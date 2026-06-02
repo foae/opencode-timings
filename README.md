@@ -61,7 +61,7 @@ Pass options using the tuple form (`[spec, options]`) in `tui.json`:
   "plugin": [
     ["@foae/opencode-timings@latest", {
       "mode": "fancy",
-      "fields": { "api": true, "wall": true, "turns": true, "avg": true, "slow": true, "sparkline": true }
+      "fields": { "ratio": true, "api": true, "wall": true, "turns": true, "avg": true, "slow": true, "sparkline": true }
     }]
   ]
 }
@@ -69,14 +69,29 @@ Pass options using the tuple form (`[spec, options]`) in `tui.json`:
 
 | Option   | Values | Default | Meaning |
 |----------|--------|---------|---------|
-| `mode`   | `"fancy"` \| `"simple"` | `"fancy"` | `fancy` draws a bar gauge for the API/wall ratio and a sparkline of recent turn durations; `simple` is plain labeled rows. |
-| `fields` | object of booleans | all `true` | Toggle individual values: `api`, `wall`, `turns`, `avg`, `slow`, `sparkline` (`sparkline` is fancy-only). |
+| `mode`   | `"fancy"` \| `"simple"` | `"fancy"` | `fancy` draws the gauge bar on the `api/wall` row and adds the per-turn sparkline; `simple` is the same rows without the bar or sparkline. |
+| `fields` | object of booleans | all `true` | Each toggles exactly one value: `ratio` (the `api/wall` gauge + percent), `api`, `wall`, `turns`, `avg`, `slow`, `sparkline` (`sparkline` is fancy-only). Values that share a line drop out individually. |
 
 With no options (a plain `"@foae/opencode-timings@latest"` string), it defaults to `fancy` mode with all fields shown.
 
 ## Requirements
 
 - OpenCode `1.15.x` or newer (uses the TUI slot plugin API).
+
+## Development
+
+Built and run with [Bun](https://bun.sh). The package ships raw source — there is no build step; OpenCode loads `src/tui.tsx` directly.
+
+- `src/timing.ts` — pure timing math, formatting, and config parsing (no JSX), unit-tested.
+- `src/tui.tsx` — the SolidJS sidebar component and the slot registration.
+
+```sh
+bun install
+bun run typecheck   # tsc --noEmit
+bun test            # unit tests for the pure logic in src/timing.ts
+```
+
+`opentui`, `solid-js`, and the OpenCode plugin/SDK are **peer dependencies** — at runtime they come from the OpenCode host so the plugin shares its renderer; the `devDependencies` mirror them for local typecheck and tests.
 
 ## License
 
