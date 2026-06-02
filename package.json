@@ -1,10 +1,13 @@
 {
-  "name": "opencode-timings",
+  "name": "@foae/opencode-timings",
   "version": "0.1.0",
   "description": "OpenCode TUI sidebar panel showing per-session timing: total API/inference time, wall-clock, turns, average and slowest turn. Zero context-window pollution.",
   "license": "MIT",
   "author": "foae",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/foae/opencode-timings.git"
@@ -28,11 +31,11 @@
   ],
   "exports": {
     "./tui": {
-      "default": "./tui.tsx"
+      "default": "./src/tui.tsx"
     }
   },
   "files": [
-    "tui.tsx",
+    "src",
     "README.md",
     "LICENSE"
   ],

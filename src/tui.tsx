@@ -20,7 +20,7 @@
  */
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@opencode-ai/plugin/tui"
 import type { Message } from "@opencode-ai/sdk/v2"
-import { createSignal, onCleanup, Show } from "solid-js"
+import { createSignal, onCleanup } from "solid-js"
 
 const id = "opencode-timings"
 
@@ -136,21 +136,21 @@ function SidebarTimingView(props: { api: TuiPluginApi; sessionID: string }) {
     ]
   }
 
+  // Always rendered (even before the first turn, showing zeros) so the panel
+  // is a permanent fixture of the sidebar.
   return (
-    <Show when={timing().ok}>
+    <box gap={0}>
+      <text fg={props.api.theme.current.text}>
+        <b>Timing</b>
+      </text>
       <box gap={0}>
-        <text fg={props.api.theme.current.text}>
-          <b>Timing</b>
-        </text>
-        <box gap={0}>
-          {lines().map((line) => (
-            <text fg={props.api.theme.current.textMuted} wrapMode="none">
-              {line || " "}
-            </text>
-          ))}
-        </box>
+        {lines().map((line) => (
+          <text fg={props.api.theme.current.textMuted} wrapMode="none">
+            {line || " "}
+          </text>
+        ))}
       </box>
-    </Show>
+    </box>
   )
 }
 

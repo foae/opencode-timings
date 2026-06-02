@@ -26,7 +26,7 @@ Timing
 | `turns` | Number of completed assistant messages, plus the average per-turn duration. |
 | `slow`  | The single slowest assistant message. |
 
-The panel stays hidden until the first turn completes.
+The panel is always shown; before the first turn its values read zero.
 
 ## Install
 
@@ -37,23 +37,14 @@ belongs in `tui.json`, not `opencode.json`:
 ```jsonc
 {
   "$schema": "https://opencode.ai/tui.json",
-  "plugin": ["github:foae/opencode-timings"]
+  "plugin": ["@foae/opencode-timings@latest"]
 }
 ```
 
 OpenCode installs the plugin and its dependencies with Bun at startup. Restart
 OpenCode and open the session sidebar to see the `Timing` panel.
 
-You can also pin a tag or commit, e.g. `github:foae/opencode-timings#v0.1.0`.
-
-## How it works
-
-The plugin registers a [`sidebar_content`](https://opencode.ai/docs/plugins/)
-slot via the OpenCode TUI plugin API and renders a small
-[SolidJS](https://www.solidjs.com/) component with
-[`@opentui/solid`](https://github.com/sst/opentui). On each relevant event
-(`message.updated`, `message.removed`, `session.updated`, `session.idle`) it
-recomputes the timing from `api.state.session.messages(sessionID)`.
+You can also pin a version, e.g. `@foae/opencode-timings@0.1.0`.
 
 ## Requirements
 
