@@ -11,10 +11,10 @@ context-window pollution**.
 
 ```
 Timing
- API   6m31s  54%
- wall  12m04s
- turns 18 · avg 21s
- slow  1m12s
+API ███████░░░ 54%
+6m31s / 12m04s
+turns 18 · avg 21s
+▁▂▅█▃▂▄▂▁▃ slow 1m12s
 ```
 
 ## Metrics
@@ -44,7 +44,30 @@ belongs in `tui.json`, not `opencode.json`:
 OpenCode installs the plugin and its dependencies with Bun at startup. Restart
 OpenCode and open the session sidebar to see the `Timing` panel.
 
-You can also pin a version, e.g. `@foae/opencode-timings@0.1.0`.
+You can also pin a version, e.g. `@foae/opencode-timings@0.1.1`.
+
+## Configuration
+
+Pass options using the tuple form (`[spec, options]`) in `tui.json`:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/tui.json",
+  "plugin": [
+    ["@foae/opencode-timings@latest", {
+      "mode": "fancy",
+      "fields": { "api": true, "wall": true, "turns": true, "avg": true, "slow": true, "sparkline": true }
+    }]
+  ]
+}
+```
+
+| Option   | Values | Default | Meaning |
+|----------|--------|---------|---------|
+| `mode`   | `"fancy"` \| `"simple"` | `"fancy"` | `fancy` draws a bar gauge for the API/wall ratio and a sparkline of recent turn durations; `simple` is plain labeled rows. |
+| `fields` | object of booleans | all `true` | Toggle individual values: `api`, `wall`, `turns`, `avg`, `slow`, `sparkline` (`sparkline` is fancy-only). |
+
+With no options (a plain `"@foae/opencode-timings@latest"` string), it defaults to `fancy` mode with all fields shown.
 
 ## Requirements
 

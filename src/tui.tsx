@@ -15,8 +15,21 @@
  *   - turns  number of completed assistant messages, plus the average duration.
  *   - slow   the single slowest assistant message.
  *
- * Modelled on @slkiser/opencode-quota's sidebar plugin (the reference for the
- * sidebar_content slot mechanism on OpenCode 1.15.x).
+ * Config — pass options via the tuple form in `tui.json`:
+ *
+ *   "plugin": [
+ *     ["@foae/opencode-timings@latest", {
+ *       "mode": "fancy",            // "fancy" (default) | "simple"
+ *       "fields": {                  // every field defaults to true
+ *         "api": true, "wall": true, "turns": true,
+ *         "avg": true, "slow": true, "sparkline": true
+ *       }
+ *     }]
+ *   ]
+ *
+ * "fancy" draws a bar gauge for the API/wall ratio and a sparkline of recent
+ * turn durations; "simple" is plain labeled rows. The panel is always shown
+ * (values read zero before the first turn).
  */
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@opencode-ai/plugin/tui"
 import type { Message } from "@opencode-ai/sdk/v2"
@@ -32,24 +45,38 @@ const SIDEBAR_ORDER = 155
 // drive updates; this interval is just a low-frequency backstop.
 const REFRESH_INTERVAL_MS = 15_000
 
+const BAR_WIDTH = 10
+const SPARK_POINTS = 12
+const SPARK_LEVELS = "▁▂▃▄▅▆▇█"
+
+type Mode = "fancy" | "simple"
+type Fields = {
+  api: boolean
+  wall: boolean
+  turns: boolean
+  avg: boolean
+  slow: boolean
+  sparkline: boolean
+}
+const DEFAULT_FIELDS: Fields = { api: true, wall: true, turns: true, avg: true, slow: true, sparkline: true }
+
 type Timing = {
-  ok: boolean
   apiMs: number
   wallMs: number
   turns: number
   avgMs: number
   slowestMs: number
   apiPct: number
+  durations: number[]
 }
-
-const EMPTY: Timing = { ok: false, apiMs: 0, wallMs: 0, turns: 0, avgMs: 0, slowestMs: 0, apiPct: 0 }
+const EMPTY: Timing = { apiMs: 0, wallMs: 0, turns: 0, avgMs: 0, slowestMs: 0, apiPct: 0, durations: [] }
 
 function computeTiming(messages: ReadonlyArray<Message>): Timing {
   let apiMs = 0
-  let turns = 0
   let slowestMs = 0
   let minTs = Number.POSITIVE_INFINITY
   let maxTs = 0
+  const durations: number[] = []
 
   for (const msg of messages) {
     const created = msg.time?.created
@@ -64,23 +91,24 @@ function computeTiming(messages: ReadonlyArray<Message>): Timing {
         const dur = completed - (typeof created === "number" ? created : completed)
         if (dur > 0) {
           apiMs += dur
-          turns += 1
+          durations.push(dur)
           if (dur > slowestMs) slowestMs = dur
         }
       }
     }
   }
 
+  const turns = durations.length
   if (turns === 0) return EMPTY
   const wallMs = minTs === Number.POSITIVE_INFINITY ? 0 : Math.max(0, maxTs - minTs)
   return {
-    ok: true,
     apiMs,
     wallMs,
     turns,
     avgMs: apiMs / turns,
     slowestMs,
     apiPct: wallMs > 0 ? Math.round((apiMs / wallMs) * 100) : 0,
+    durations,
   }
 }
 
@@ -95,7 +123,61 @@ function fmtDuration(ms: number): string {
   return `${hours}h${String(totalMin % 60).padStart(2, "0")}m`
 }
 
-function SidebarTimingView(props: { api: TuiPluginApi; sessionID: string }) {
+function bar(pct: number, width: number): string {
+  const p = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0))
+  const filled = Math.round((p / 100) * width)
+  return "█".repeat(filled) + "░".repeat(Math.max(0, width - filled))
+}
+
+function sparkline(values: number[]): string {
+  if (values.length === 0) return ""
+  const points = values.slice(-SPARK_POINTS)
+  const max = Math.max(...points, 1)
+  return points
+    .map((v) => {
+      const idx = Math.round((v / max) * (SPARK_LEVELS.length - 1))
+      return SPARK_LEVELS[Math.min(SPARK_LEVELS.length - 1, Math.max(0, idx))]
+    })
+    .join("")
+}
+
+type Tone = "muted" | "accent"
+type Row = { text: string; tone: Tone }
+
+function turnsLine(t: Timing, fields: Fields): string {
+  if (fields.turns && fields.avg) return `turns ${t.turns} · avg ${fmtDuration(t.avgMs)}`
+  if (fields.turns) return `turns ${t.turns}`
+  if (fields.avg) return `avg ${fmtDuration(t.avgMs)}`
+  return ""
+}
+
+function buildRows(t: Timing, mode: Mode, fields: Fields): Row[] {
+  const rows: Row[] = []
+  if (mode === "fancy") {
+    if (fields.api) rows.push({ text: `API ${bar(t.apiPct, BAR_WIDTH)} ${t.apiPct}%`, tone: "accent" })
+    if (fields.wall) rows.push({ text: `${fmtDuration(t.apiMs)} / ${fmtDuration(t.wallMs)}`, tone: "muted" })
+    const ta = turnsLine(t, fields)
+    if (ta) rows.push({ text: ta, tone: "muted" })
+    const spark = fields.sparkline ? sparkline(t.durations) : ""
+    const slow = fields.slow ? `slow ${fmtDuration(t.slowestMs)}` : ""
+    const last = [spark, slow].filter(Boolean).join(" ")
+    if (last) rows.push({ text: last, tone: "muted" })
+  } else {
+    if (fields.api) rows.push({ text: `API   ${fmtDuration(t.apiMs)}  ${t.apiPct}%`, tone: "muted" })
+    if (fields.wall) rows.push({ text: `wall  ${fmtDuration(t.wallMs)}`, tone: "muted" })
+    const ta = turnsLine(t, fields)
+    if (ta) rows.push({ text: ta, tone: "muted" })
+    if (fields.slow) rows.push({ text: `slow  ${fmtDuration(t.slowestMs)}`, tone: "muted" })
+  }
+  return rows
+}
+
+function SidebarTimingView(props: {
+  api: TuiPluginApi
+  sessionID: string
+  mode: Mode
+  fields: Fields
+}) {
   const read = (): Timing => computeTiming(props.api.state.session.messages(props.sessionID))
   const [timing, setTiming] = createSignal<Timing>(read())
   const refresh = () => setTiming(read())
@@ -126,27 +208,19 @@ function SidebarTimingView(props: { api: TuiPluginApi; sessionID: string }) {
     for (const unsubscribe of unsubscribers) unsubscribe()
   })
 
-  const lines = (): string[] => {
-    const t = timing()
-    return [
-      `API   ${fmtDuration(t.apiMs)}  ${t.apiPct}%`,
-      `wall  ${fmtDuration(t.wallMs)}`,
-      `turns ${t.turns} · avg ${fmtDuration(t.avgMs)}`,
-      `slow  ${fmtDuration(t.slowestMs)}`,
-    ]
-  }
+  const rows = (): Row[] => buildRows(timing(), props.mode, props.fields)
+  const toneColor = (tone: Tone) =>
+    tone === "accent" ? props.api.theme.current.accent : props.api.theme.current.textMuted
 
-  // Always rendered (even before the first turn, showing zeros) so the panel
-  // is a permanent fixture of the sidebar.
   return (
     <box gap={0}>
       <text fg={props.api.theme.current.text}>
         <b>Timing</b>
       </text>
       <box gap={0}>
-        {lines().map((line) => (
-          <text fg={props.api.theme.current.textMuted} wrapMode="none">
-            {line || " "}
+        {rows().map((row) => (
+          <text fg={toneColor(row.tone)} wrapMode="none">
+            {row.text || " "}
           </text>
         ))}
       </box>
@@ -154,12 +228,27 @@ function SidebarTimingView(props: { api: TuiPluginApi; sessionID: string }) {
   )
 }
 
-const tui: TuiPlugin = async (api) => {
+function parseConfig(options: Record<string, unknown> | undefined): { mode: Mode; fields: Fields } {
+  const opts = options ?? {}
+  const mode: Mode = opts.mode === "simple" ? "simple" : "fancy"
+  const fields: Fields = { ...DEFAULT_FIELDS }
+  const raw = opts.fields
+  if (raw && typeof raw === "object") {
+    for (const key of Object.keys(DEFAULT_FIELDS) as (keyof Fields)[]) {
+      const value = (raw as Record<string, unknown>)[key]
+      if (typeof value === "boolean") fields[key] = value
+    }
+  }
+  return { mode, fields }
+}
+
+const tui: TuiPlugin = async (api, options) => {
+  const { mode, fields } = parseConfig(options)
   api.slots.register({
     order: SIDEBAR_ORDER,
     slots: {
       sidebar_content(_ctx, props: { session_id: string }) {
-        return <SidebarTimingView api={api} sessionID={props.session_id} />
+        return <SidebarTimingView api={api} sessionID={props.session_id} mode={mode} fields={fields} />
       },
     },
   })
