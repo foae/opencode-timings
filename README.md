@@ -9,6 +9,8 @@ Files panels, reading the session's messages directly from the TUI's reactive
 state. Nothing is ever injected into the message stream, so there is **zero
 context-window pollution**.
 
+![The Timing panel in OpenCode's sidebar — api/wall 34%, api 19s · wall 56s, turns 5 · avg 4s, slowest 6s — sitting between the built-in Quota and LSP sections](https://raw.githubusercontent.com/foae/opencode-timings/main/opencode-timings-screenshot.png)
+
 ```
 Timing
 api/wall ██████░░ 78%
