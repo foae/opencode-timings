@@ -7,13 +7,24 @@
  * state. Nothing is injected into the message stream, so there is zero
  * context-window pollution.
  *
+ * Fancy layout — every value names itself, all rows in the muted tone:
+ *
+ *   Timing
+ *   api/wall ███████░ 78%      gauge: how much of wall-clock was model inference
+ *   api 31s · wall 40s          the two raw times behind that ratio
+ *   turns 4 · avg 8s            completed assistant turns and their average
+ *   slowest 19s                 the single slowest turn
+ *   per-turn ▄█▂▂               sparkline of each recent turn's duration
+ *
  * Metrics (per session):
- *   - API    total assistant inference time = sum of (time.completed - time.created)
- *            over every completed assistant message, with its share of wall-clock.
- *   - wall   span from the first to the last message timestamp (includes the time
- *            you spend reading/typing between turns).
- *   - turns  number of completed assistant messages, plus the average duration.
- *   - slow   the single slowest assistant message.
+ *   - api      total assistant inference time = sum of (time.completed - time.created)
+ *              over every completed assistant message.
+ *   - wall     span from the first to the last message timestamp (includes the time
+ *              you spend reading/typing between turns), so api is a fraction of it.
+ *   - api/wall api's share of wall-clock, as a bar gauge and percent.
+ *   - turns    number of completed assistant messages, plus the average duration.
+ *   - slowest  the single slowest assistant message.
+ *   - per-turn sparkline of recent per-turn durations.
  *
  * Config — pass options via the tuple form in `tui.json`:
  *
@@ -27,7 +38,7 @@
  *     }]
  *   ]
  *
- * "fancy" draws a bar gauge for the API/wall ratio and a sparkline of recent
+ * "fancy" draws a bar gauge for the api/wall ratio and a sparkline of recent
  * turn durations; "simple" is plain labeled rows. The panel is always shown
  * (values read zero before the first turn).
  */
@@ -45,7 +56,9 @@ const SIDEBAR_ORDER = 155
 // drive updates; this interval is just a low-frequency backstop.
 const REFRESH_INTERVAL_MS = 15_000
 
-const BAR_WIDTH = 10
+// Narrower than the simple-mode rows so the "api/wall" label + gauge + percent
+// fit one sidebar line without wrapping.
+const BAR_WIDTH = 8
 const SPARK_POINTS = 12
 const SPARK_LEVELS = "▁▂▃▄▅▆▇█"
 
@@ -141,9 +154,6 @@ function sparkline(values: number[]): string {
     .join("")
 }
 
-type Tone = "muted" | "accent"
-type Row = { text: string; tone: Tone }
-
 function turnsLine(t: Timing, fields: Fields): string {
   if (fields.turns && fields.avg) return `turns ${t.turns} · avg ${fmtDuration(t.avgMs)}`
   if (fields.turns) return `turns ${t.turns}`
@@ -151,23 +161,26 @@ function turnsLine(t: Timing, fields: Fields): string {
   return ""
 }
 
-function buildRows(t: Timing, mode: Mode, fields: Fields): Row[] {
-  const rows: Row[] = []
+// Every row is a labeled string in the muted tone — no value relies on the
+// reader inferring what an unlabeled number or glyph means.
+function buildRows(t: Timing, mode: Mode, fields: Fields): string[] {
+  const rows: string[] = []
   if (mode === "fancy") {
-    if (fields.api) rows.push({ text: `API ${bar(t.apiPct, BAR_WIDTH)} ${t.apiPct}%`, tone: "accent" })
-    if (fields.wall) rows.push({ text: `${fmtDuration(t.apiMs)} / ${fmtDuration(t.wallMs)}`, tone: "muted" })
+    if (fields.api) rows.push(`api/wall ${bar(t.apiPct, BAR_WIDTH)} ${t.apiPct}%`)
+    if (fields.wall) rows.push(`api ${fmtDuration(t.apiMs)} · wall ${fmtDuration(t.wallMs)}`)
     const ta = turnsLine(t, fields)
-    if (ta) rows.push({ text: ta, tone: "muted" })
-    const spark = fields.sparkline ? sparkline(t.durations) : ""
-    const slow = fields.slow ? `slow ${fmtDuration(t.slowestMs)}` : ""
-    const last = [spark, slow].filter(Boolean).join(" ")
-    if (last) rows.push({ text: last, tone: "muted" })
+    if (ta) rows.push(ta)
+    if (fields.slow) rows.push(`slowest ${fmtDuration(t.slowestMs)}`)
+    if (fields.sparkline) {
+      const spark = sparkline(t.durations)
+      if (spark) rows.push(`per-turn ${spark}`)
+    }
   } else {
-    if (fields.api) rows.push({ text: `API   ${fmtDuration(t.apiMs)}  ${t.apiPct}%`, tone: "muted" })
-    if (fields.wall) rows.push({ text: `wall  ${fmtDuration(t.wallMs)}`, tone: "muted" })
+    if (fields.api) rows.push(`api ${fmtDuration(t.apiMs)} · ${t.apiPct}% of wall`)
+    if (fields.wall) rows.push(`wall ${fmtDuration(t.wallMs)}`)
     const ta = turnsLine(t, fields)
-    if (ta) rows.push({ text: ta, tone: "muted" })
-    if (fields.slow) rows.push({ text: `slow  ${fmtDuration(t.slowestMs)}`, tone: "muted" })
+    if (ta) rows.push(ta)
+    if (fields.slow) rows.push(`slowest ${fmtDuration(t.slowestMs)}`)
   }
   return rows
 }
@@ -208,9 +221,7 @@ function SidebarTimingView(props: {
     for (const unsubscribe of unsubscribers) unsubscribe()
   })
 
-  const rows = (): Row[] => buildRows(timing(), props.mode, props.fields)
-  const toneColor = (tone: Tone) =>
-    tone === "accent" ? props.api.theme.current.accent : props.api.theme.current.textMuted
+  const rows = (): string[] => buildRows(timing(), props.mode, props.fields)
 
   return (
     <box gap={0}>
@@ -219,8 +230,8 @@ function SidebarTimingView(props: {
       </text>
       <box gap={0}>
         {rows().map((row) => (
-          <text fg={toneColor(row.tone)} wrapMode="none">
-            {row.text || " "}
+          <text fg={props.api.theme.current.textMuted} wrapMode="none">
+            {row || " "}
           </text>
         ))}
       </box>

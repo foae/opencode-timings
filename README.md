@@ -11,20 +11,25 @@ context-window pollution**.
 
 ```
 Timing
-API ███████░░░ 54%
-6m31s / 12m04s
-turns 18 · avg 21s
-▁▂▅█▃▂▄▂▁▃ slow 1m12s
+api/wall ██████░░ 78%
+api 31s · wall 40s
+turns 4 · avg 8s
+slowest 19s
+per-turn ▄█▂▂
 ```
+
+Every row names itself, so there are no unlabeled numbers or glyphs to decode.
 
 ## Metrics
 
-| Row     | Meaning |
-|---------|---------|
-| `API`   | Total assistant inference time — the sum of `time.completed − time.created` over every completed assistant message — and its share of wall-clock. |
-| `wall`  | Span from the first to the last message timestamp. Includes the time you spend reading/typing between turns, so `API` is always a fraction of it. |
-| `turns` | Number of completed assistant messages, plus the average per-turn duration. |
-| `slow`  | The single slowest assistant message. |
+| Row        | Meaning |
+|------------|---------|
+| `api/wall` | How much of wall-clock was actual model inference, as a bar gauge and percent. |
+| `api`      | Total assistant inference time — the sum of `time.completed − time.created` over every completed assistant message. |
+| `wall`     | Span from the first to the last message timestamp. Includes the time you spend reading/typing between turns, so `api` is always a fraction of it. |
+| `turns`    | Number of completed assistant messages, plus the average per-turn duration. |
+| `slowest`  | The single slowest assistant message. |
+| `per-turn` | Sparkline of each recent turn's duration. |
 
 The panel is always shown; before the first turn its values read zero.
 
@@ -44,7 +49,7 @@ belongs in `tui.json`, not `opencode.json`:
 OpenCode installs the plugin and its dependencies with Bun at startup. Restart
 OpenCode and open the session sidebar to see the `Timing` panel.
 
-You can also pin a version, e.g. `@foae/opencode-timings@0.1.1`.
+You can also pin a version, e.g. `@foae/opencode-timings@0.1.2`.
 
 ## Configuration
 
