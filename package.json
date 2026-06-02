@@ -1,6 +1,6 @@
 {
   "name": "@foae/opencode-timings",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "OpenCode TUI sidebar panel showing per-session timing: total API/inference time, wall-clock, turns, average and slowest turn. Zero context-window pollution.",
   "license": "MIT",
   "author": "foae",
